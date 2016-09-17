@@ -1,0 +1,7 @@
+/client/.vs/grldc/v14/*.suo
+/client/visual/.vs/grldc/v14/*.suo
+/client/visual/Debug
+/client/visual/*.sdf
+/client/visual/*.user
+/client/visual/x64/Debug
+/server/clients

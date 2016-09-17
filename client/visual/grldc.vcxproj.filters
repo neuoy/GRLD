@@ -1,0 +1,83 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="lua">
+      <UniqueIdentifier>{090b6d1e-9eaf-4b74-8b68-88d15d77f5cf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="grldc">
+      <UniqueIdentifier>{8cb57c93-bc88-4296-a89c-c8d9e2d6c5c2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\src\grldc.h">
+      <Filter>grldc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\luajit_ex.h">
+      <Filter>grldc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lapi.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lauxlib.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\llimits.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lmem.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lobject.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lstate.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\ltm.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lua.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lua.hpp">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\luaconf.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lualib.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+    <ClInclude Include="..\3rdparty\lua5.2\include\lzio.h">
+      <Filter>lua</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\src\grldc.c">
+      <Filter>grldc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\luajit_ex.c">
+      <Filter>grldc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\grldc_ldb.lua.c">
+      <Filter>grldc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\grldc_net.lua.c">
+      <Filter>grldc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\grldc_socket.lua.c">
+      <Filter>grldc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\grldc_utilities.lua.c">
+      <Filter>grldc</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\grldc_ldb.lua">
+      <Filter>grldc</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CustomBuild Include="..\build\embed.lua.bat" />
+  </ItemGroup>
+</Project>
