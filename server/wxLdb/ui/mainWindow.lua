@@ -57,15 +57,15 @@ end
 function meta.__index:init()
 	self.frame = wx.wxFrame( wx.NULL, wx.wxID_ANY, "GRLD server", wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxDEFAULT_FRAME_STYLE + wx.wxMAXIMIZE)
 	mainthread.init( self.frame )
-	
+
 	self:initLayout_()
-	
+
 	self.mountPathPopup = ui.promptMountPath.new()
 	self.notificationPopup = ui.notification.new()
-	
+
 	self.idleUpdates = {}
 	self.frame:Connect( wx.wxEVT_IDLE, function( event ) self:onIdleUpdate_( event ) end )
-	
+
 	self.events = { onBreakPointChanged = {}, onFileOpen = {}, onFileClosed = {}, onApplicationExiting = {} }
 end
 
@@ -81,37 +81,37 @@ function meta.__index:initLayout_()
 	self.root = wx.wxSplitterWindow( self.frame, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, 0 ) -- root widget
 	self.sourceBook = wx.wxNotebook( self.root, wx.wxID_ANY ) -- book of source code pages
 	self.debugRoot = wx.wxSplitterWindow( self.root, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, 0 )
-	
+
 	-- threads window
 	self.threads = ui.threads.new( self.debugRoot, self.frame )
-	
+
 	self.debugBooks = wx.wxSplitterWindow( self.debugRoot, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, 0 )
 	self.debugBookL = wx.wxNotebook( self.debugBooks, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxNB_BOTTOM )
 	self.debugBookR = wx.wxNotebook( self.debugBooks, wx.wxID_ANY, wx.wxDefaultPosition, wx.wxDefaultSize, wx.wxNB_BOTTOM )
-	
+
 	-- callstack window
 	self.callstack = ui.callstack.new( self.debugBookL )
 	self.debugBookL:AddPage( self.callstack:getRoot(), "Call stack" )
-	
+
 	-- automatic variables window
 	self.auto = ui.luaExplorer.new( self.debugBookR, false )
 	self.debugBookR:AddPage( self.auto:getRoot(), "Automatic variables" )
-	
+
 	-- watch window
 	self.watch = ui.luaExplorer.new( self.debugBookR, true )
 	self.debugBookR:AddPage( self.watch:getRoot(), "Watch" )
-	
+
 	self.root:SplitHorizontally( self.sourceBook, self.debugRoot, -200 )
 	self.debugRoot:SplitVertically( self.threads:getRoot(), self.debugBooks, 250 )
 	self.debugBooks:SplitVertically( self.debugBookL, self.debugBookR )
-	
+
 	self.sourcePages = {}
-	
+
 	local fileMenu = wx.wxMenu()
 	fileMenu:Append( ID_FILE_OPEN, "&Open\tCtrl-O", "Open a source file" )
 	fileMenu:Append( ID_FILE_CLOSE, "&Close\tCtrl-F4", "Close the current source file" )
 	fileMenu:Append( ID_EXIT, "E&xit\tAlt-F4", "Exit the GRLD server" )
-	
+
 	local debugMenu = wx.wxMenu()
 	debugMenu:Append( ID_BREAK, "&Break\tF12", "Stop execution of the program at the next executed line of code" )
 	debugMenu:Append( ID_CONTINUE, "&Continue\tF5", "Run the program at full speed" )
@@ -119,17 +119,17 @@ function meta.__index:initLayout_()
 	debugMenu:Append( ID_STEP_INTO, "Step &into\tF11", "Step into a line" )
     debugMenu:Append( ID_STEP_OUT, "Step &out\tShift-F11", "Step out of the current function" )
 	debugMenu:Append( ID_TOGGLE_BREAKPOINT, "&Toggle breakpoint\tF9", "Toggle the breakpoint on the current line" )
-	
+
 	local helpMenu = wx.wxMenu()
 	helpMenu:Append( ID_HELP_MANUAL, "&Manual", "Send the GRLD manual to your web browser" )
 	helpMenu:Append( ID_HELP_ABOUT, "&About", "Open a window with various information about GRLD" )
-	
+
 	local menuBar = wx.wxMenuBar()
 	menuBar:Append( fileMenu, "&File" )
 	menuBar:Append( debugMenu, "&Debug" )
 	menuBar:Append( helpMenu, "&Help" )
 	self.frame:SetMenuBar( menuBar )
-	
+
 	self.frame:Connect( ID_FILE_OPEN, wx.wxEVT_COMMAND_MENU_SELECTED, function( ... ) self:onFileOpen_( ... ) end )
 	self.frame:Connect( ID_FILE_CLOSE, wx.wxEVT_COMMAND_MENU_SELECTED, function( ... ) self:onFileClose_( ... ) end )
 	self.frame:Connect( ID_HELP_MANUAL, wx.wxEVT_COMMAND_MENU_SELECTED, function( ... ) self:onHelpManual_( ... ) end )
@@ -170,7 +170,7 @@ function meta.__index:onFileOpen_( event )
 		fullPath = fileDialog:GetPath()
 	end
 	fileDialog:Destroy()
-	
+
 	if fullPath ~= nil then
 		self:runEvents_( "onFileOpen", fullPath )
 	end
@@ -199,22 +199,22 @@ end
 
 function meta.__index:onHelpManual_()
 	local docPath = "../doc/index.html"
-	
+
 	-- get the command to start the default web browser from the registry (MS Windows only)
 	local pipe = io.popen( "reg query HKEY_CLASSES_ROOT\\HTTP\\shell\\open\\command" )
 	local data = pipe:read( "*a" )
 	pipe:close()
-	
+
 	-- example of returned data (Windows XP):
 	--! REG.EXE VERSION 3.0
 	--
 	--HKEY_CLASSES_ROOT\HTTP\shell\open\command
 	--	<SANS NOM>  REG_SZ  "E:\Outils\Firefox\firefox.exe" -requestPending -osint -url "%1"
-	
+
 	-- other example (on Vista)
 	--HKEY_CLASSES_ROOT\HTTP\shell\open\command
 	--    (par défaut)    REG_SZ    "C:\Program Files\Mozilla Firefox\firefox.exe" -requestPending -osint -url "%1"
-	
+
 	-- parse returned data
 	local _, _, cmd = string.find( data, "REG_SZ%s+(.+)" )
 	local result = -1
@@ -228,7 +228,7 @@ function meta.__index:onHelpManual_()
 			cmd = cmd.."\""..docPath.."\""
 		end
 		print( cmd )
-		
+
 		-- start the default browser with the GRLD documentation as parameter
 		result = os.execute( "start \"GRLD documentation\" "..cmd )
 	end
@@ -341,6 +341,10 @@ function meta.__index:setActive()
 	self.active = true
 end
 
+function meta.__index:raise()
+	self.frame:Raise()
+end
+
 function meta.__index:onIdleUpdate_( event )
 	local currentPageIdx = self.sourceBook:GetSelection()
 	for _, page in pairs( self.sourcePages ) do
@@ -351,7 +355,7 @@ function meta.__index:onIdleUpdate_( event )
 			end
 		end
 	end
-	
+
 	self.active = false
 	for _, func in pairs( self.idleUpdates ) do
 		local ok, msg = xpcall( func, debug.traceback )
