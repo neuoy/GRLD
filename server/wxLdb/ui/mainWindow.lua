@@ -341,6 +341,10 @@ function meta.__index:setActive()
 	self.active = true
 end
 
+function meta.__index:raise()
+	self.frame:Raise()
+end
+
 function meta.__index:onIdleUpdate_( event )
 	local currentPageIdx = self.sourceBook:GetSelection()
 	for _, page in pairs( self.sourcePages ) do

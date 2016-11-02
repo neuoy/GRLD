@@ -224,6 +224,7 @@ function meta.__index:refreshSourcePageFocus_( remoteSource, line )
 	local clientData = assert( self.clients[clientId] )
 	local sourceType = string.sub( remoteSource, 1, 1 )
 	if sourceType == "@" then
+		self.window:raise()
 		print( "Setting focus to "..remoteSource.."("..line..")" )
 		remoteSource = grldc.utilities.normalizePath( string.sub( remoteSource, 2 ) )
 		local source, remotePath, remoteFile = self:getLocalSource_( clientId, remoteSource )
