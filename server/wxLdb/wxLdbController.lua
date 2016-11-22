@@ -11,6 +11,8 @@ local ui =
 }
 local lfs = require( "lfs" )
 
+local wx = require( "wx" )
+
 require( "coxpcall" )
 local coxpcall = coxpcall
 local copcall = copcall
@@ -36,6 +38,15 @@ module( "wxLdbController" )
 local meta = { __index = {} }
 
 local complexValueManagerMeta = { __index = {} }
+
+local function createClientConfig(name)
+	return {
+		name = name,
+		mappings = {},
+		breakpoints = {},
+		scrollPositions = {},
+	}
+end
 
 function new( engine, window )
 	local res =
@@ -133,6 +144,7 @@ function meta.__index:run_()
 	self.window:registerEvent( "onBreakPointChanged", wrapCb( function( ... ) self:onBreakPointChanged_( ... ) end ) )
 	self.window:registerEvent( "onFileOpen", wrapCb( function( ... ) self:onFileOpen_( ... ) end ) )
 	self.window:registerEvent( "onFileClosed", wrapCb( function( ... ) self:onFileClosed_( ... ) end ) )
+	self.window:registerEvent( "onScrollChanged", wrapCb(function( ... ) self:onScrollChanged_( ...) end ) )
 
 	self.window:registerEvent( "onApplicationExiting", wrapCb( function( ... ) self:onApplicationExiting_( ... ) end ) )
 
@@ -143,7 +155,7 @@ function meta.__index:run_()
 
 	self.window.watch.evaluateCallback = wrapCb( function( expr ) return self:evaluateExpression_( expr ) end )
 
-	self.configs.global = { name = "global", breakpoints = {} }
+	self.configs.global = createClientConfig('global')
 	self:loadConfig_( "global" )
 
 	self:sleep_()
@@ -198,6 +210,22 @@ function meta.__index:run_()
 
 		self:sleep_()
 	end
+end
+
+function meta.__index:getActiveClientConfig_()
+	local activeClientId = self.activeClient
+
+	if activeClientId == nil then
+		return self.configs.global
+	end
+
+	local clientData = self.clients[activeClientId]
+
+	if clientData == nil then
+		return self.configs.global
+	end
+
+	return clientData.config
 end
 
 function meta.__index:evaluateExpression_( expr )
@@ -397,6 +425,17 @@ function meta.__index:onApplicationExiting_()
 	self.window.threads:setData( nil )
 end
 
+function meta.__index:refreshScrollPosition_()
+	local config = self:getActiveClientConfig_()
+
+	for source, sp in pairs( config.scrollPositions ) do
+		local page = self.window:getSourcePage( source )
+		if page ~= nil then
+			page:SetScrollPos(sp)
+		end
+	end	
+end
+
 function meta.__index:refreshBreakPoints_()
 	local clientId = self.activeClient
 	local config = nil
@@ -460,12 +499,19 @@ function meta.__index:onFileOpen_( path )
 	self:setSourceFocus_( source, 1 )
 	self:refreshPointers_()
 	self:refreshBreakPoints_()
+	self:refreshScrollPosition_()
 end
 
 function meta.__index:onFileClosed_( source )
 	for id, clientData in pairs( self.clients ) do
 		clientData.config.dirty = true
 	end
+end
+
+function meta.__index:onScrollChanged_( source, position )
+	local clientConfig = self:getActiveClientConfig_()
+	clientConfig.scrollPositions[source] = position
+	clientConfig.dirty = true
 end
 
 function meta.__index:onThreadClicked_( clientId, threadId )
@@ -684,7 +730,7 @@ function meta.__index:onNewClient_( clientId )
 	local client = self.engine.getClient( clientId )
 	local name = client:name()
 	if self.configs[name] == nil then
-		self.configs[name] = { name = name, mappings = {}, breakpoints = {} }
+		self.configs[name] = createClientConfig(name)
 		self:loadConfig_( name )
 	end
 	self.clients[clientId] = { dirty = true, activeThread = "current", activeLevel = 1, config = self.configs[name] }
@@ -742,12 +788,19 @@ function meta.__index:saveConfig_( name )
 		openFiles[page.pageIdx+1] = source
 	end
 	local breakpoints = clientConfig.breakpoints
+	local scrollPositions = clientConfig.scrollPositions
 
 	local path = "clients/"..name.."/config.lua"
 	lfs.mkdir( "clients" )
 	lfs.mkdir( "clients/"..name )
 	local file = assert( io.open( path, "w" ) )
-	file:write( grldc.net.serialize( { mappings = clientConfig.mappings, openFiles = openFiles, breakpoints = breakpoints, breakOnConnection = clientConfig.breakOnConnection } ) )
+	file:write( grldc.net.serialize( { 
+		mappings = clientConfig.mappings, 
+		openFiles = openFiles, 
+		breakpoints = breakpoints,
+		scrollPositions = scrollPositions,
+		breakOnConnection = clientConfig.breakOnConnection
+	} ) )
 	file:close()
 	print( "Saved config \""..name.."\"" )
 	clientConfig.lastConfigSave = os.time()
@@ -773,6 +826,12 @@ function meta.__index:loadConfig_( name )
 				for line, _ in pairs( bp ) do
 					clientConfig.breakpoints[source][line] = true
 				end
+			end
+		end
+
+		if config.scrollPositions ~= nil then
+			for source, sp in pairs( config.scrollPositions ) do
+				clientConfig.scrollPositions[source] = sp
 			end
 		end
 	end

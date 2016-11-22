@@ -66,7 +66,13 @@ function meta.__index:init()
 	self.idleUpdates = {}
 	self.frame:Connect( wx.wxEVT_IDLE, function( event ) self:onIdleUpdate_( event ) end )
 
-	self.events = { onBreakPointChanged = {}, onFileOpen = {}, onFileClosed = {}, onApplicationExiting = {} }
+	self.events = { 
+		onBreakPointChanged = {}, 
+		onFileOpen = {}, 
+		onFileClosed = {}, 
+		onApplicationExiting = {},
+		onScrollChanged = {}
+	}
 end
 
 function meta.__index:show( show )
@@ -272,6 +278,7 @@ function meta.__index:getSourcePage( source )
 		page.pageIdx = self.sourceBook:GetPageCount()
 		self.sourceBook:AddPage( page:getRoot(), name )
 		page:registerEvent( "onBreakPointChanged", function( ... ) self:runEvents_( "onBreakPointChanged", source, ... ) end )
+		page:registerEvent( "onScrollChanged", function( ... ) self:runEvents_( "onScrollChanged", source, ... ) end )
 	end
 	return page
 end
