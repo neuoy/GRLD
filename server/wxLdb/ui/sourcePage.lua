@@ -5,6 +5,8 @@ local ui =
 	editor = require( "ui.editor" ),
 }
 
+local wx = require( "wx" )
+
 local lfs = require( "lfs" )
 
 local assert = assert
@@ -23,7 +25,10 @@ function new( parent, source )
 	local page = {}
 	setmetatable( page, meta )
 	page.editor = ui.editor.new( parent )
-	page.events = { onBreakPointChanged = {} }
+	page.events = { 
+		onBreakPointChanged = {},
+		onScrollChanged = {},
+	}
 	page:setSource_( source )
 	page.editor.breakpointCallback = function( line )
 		page:runEvents_( "onBreakPointChanged", line )
@@ -53,6 +58,9 @@ function meta.__index:update()
 		assert( string.sub( self.source, 1, 1 ) == "@" )
 		local fileName = string.sub( self.source, 2 )
 		
+		local scrollPosition = self:GetScrollPos()
+		self:runEvents_( "onScrollChanged", scrollPosition )
+
 		local newDate = lfs.attributes( fileName, "modification" ) or 0
 		if newDate > self.sourceDate then
 			print( "reloading source file "..fileName )
@@ -76,6 +84,14 @@ end
 function meta.__index:getFocus()
 	local ed = self.editor.editor
 	return ed:GetCurrentLine() + 1
+end
+
+function meta.__index:SetScrollPos( pos )
+	self.editor.editor:LineScroll(0, pos)
+end
+
+function meta.__index:GetScrollPos()
+	return self.editor.editor:GetScrollPos( wx.wxVERTICAL )
 end
 
 function meta.__index:setCurrentLine( line )

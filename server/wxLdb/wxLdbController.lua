@@ -11,6 +11,8 @@ local ui =
 }
 local lfs = require( "lfs" )
 
+local wx = require( "wx" )
+
 require( "coxpcall" )
 local coxpcall = coxpcall
 local copcall = copcall
@@ -36,6 +38,15 @@ module( "wxLdbController" )
 local meta = { __index = {} }
 
 local complexValueManagerMeta = { __index = {} }
+
+local function createClientConfig(name)
+	return {
+		name = name,
+		mappings = {},
+		breakpoints = {},
+		scrollPositions = {},
+	}
+end
 
 function new( engine, window )
 	local res =
@@ -101,9 +112,9 @@ end
 
 function meta.__index:run_()
 	self:sleep_()
-	
+
 --@GRLD_PROTECTION@
-	
+
 	self.engine.init()
 	for _, listener in ipairs( self.toListen ) do
 		self.engine.listen( listener.ip, listener.port )
@@ -114,7 +125,7 @@ function meta.__index:run_()
 	for _, cbName in ipairs( { "onNewClient", "onClientBreak", "onClientLost" } ) do
 		self.engine.registerEvent( cbName, function( ... ) return self[cbName.."_"]( self, ... ) end )
 	end
-	
+
 	local wrapCb = function( cb )
 		return function( ... )
 			if self:ready_() then
@@ -122,30 +133,31 @@ function meta.__index:run_()
 			end
 		end
 	end
-	
+
 	self.window:registerEvent( ui.mainWindow.ID_BREAK, wrapCb( function() self:onDebugCommand_( "breaknow", "running" ) end ) )
 	self.window:registerEvent( ui.mainWindow.ID_CONTINUE, wrapCb( function() self:onDebugCommand_( "run", "break" ) end ) )
 	self.window:registerEvent( ui.mainWindow.ID_STEP_OVER, wrapCb( function() self:onDebugCommand_( "stepover", "break" ) end ) )
 	self.window:registerEvent( ui.mainWindow.ID_STEP_INTO, wrapCb( function() self:onDebugCommand_( "stepin", "break" ) end ) )
 	self.window:registerEvent( ui.mainWindow.ID_STEP_OUT, wrapCb( function() self:onDebugCommand_( "stepout", "break" ) end ) )
 	self.window:registerEvent( ui.mainWindow.ID_TOGGLE_BREAKPOINT, wrapCb( function() self:onToggleBreakpoint_() end ) )
-	
+
 	self.window:registerEvent( "onBreakPointChanged", wrapCb( function( ... ) self:onBreakPointChanged_( ... ) end ) )
 	self.window:registerEvent( "onFileOpen", wrapCb( function( ... ) self:onFileOpen_( ... ) end ) )
 	self.window:registerEvent( "onFileClosed", wrapCb( function( ... ) self:onFileClosed_( ... ) end ) )
-	
+	self.window:registerEvent( "onScrollChanged", wrapCb(function( ... ) self:onScrollChanged_( ...) end ) )
+
 	self.window:registerEvent( "onApplicationExiting", wrapCb( function( ... ) self:onApplicationExiting_( ... ) end ) )
-	
+
 	self.window.threads:registerEvent( "onThreadClicked", wrapCb( function( ... ) self:onThreadClicked_( ... ) end ) )
 	self.window.threads:registerEvent( "onBreakOnConnectionChanged", wrapCb( function( ... ) self:onBreakOnConnectionChanged_( ... ) end ) )
-	
+
 	self.window.callstack:registerEvent( "onCallstackClicked", wrapCb( function( ... ) self:onCallstackClicked_( ... ) end ) )
-	
+
 	self.window.watch.evaluateCallback = wrapCb( function( expr ) return self:evaluateExpression_( expr ) end )
-	
-	self.configs.global = { name = "global", breakpoints = {} }
+
+	self.configs.global = createClientConfig('global')
 	self:loadConfig_( "global" )
-	
+
 	self:sleep_()
 	while not self.exiting do
 		for clientId, clientData in pairs( self.clients ) do
@@ -188,16 +200,32 @@ function meta.__index:run_()
 			end
 			end, function( msg ) print( "Error refreshing client "..clientId ) print( msg ) print( debug.traceback() ) end )
 		end
-		
+
 		if self.threadsDirty then
 			coxpcall( function()
 			self.threadsDirty = false
 			self:refreshThreads_()
 			end, function( msg ) print( "Error refreshing threads" ) print( msg ) print( debug.traceback() ) end )
 		end
-		
+
 		self:sleep_()
 	end
+end
+
+function meta.__index:getActiveClientConfig_()
+	local activeClientId = self.activeClient
+
+	if activeClientId == nil then
+		return self.configs.global
+	end
+
+	local clientData = self.clients[activeClientId]
+
+	if clientData == nil then
+		return self.configs.global
+	end
+
+	return clientData.config
 end
 
 function meta.__index:evaluateExpression_( expr )
@@ -224,6 +252,7 @@ function meta.__index:refreshSourcePageFocus_( remoteSource, line )
 	local clientData = assert( self.clients[clientId] )
 	local sourceType = string.sub( remoteSource, 1, 1 )
 	if sourceType == "@" then
+		self.window:raise()
 		print( "Setting focus to "..remoteSource.."("..line..")" )
 		remoteSource = grldc.utilities.normalizePath( string.sub( remoteSource, 2 ) )
 		local source, remotePath, remoteFile = self:getLocalSource_( clientId, remoteSource )
@@ -243,16 +272,16 @@ function meta.__index:refreshSourcePageFocus_( remoteSource, line )
 				clientData.config.mappings[mount] = path
 				clientData.config.dirty = true
 				source = self:getLocalSource_( clientId, remoteSource )
-				assert( source ~= nil )	
+				assert( source ~= nil )
 			end
 		end
-		
+
 		if source ~= nil then
 			print( source )
 			source = grldc.utilities.normalizePath( source )
 			self:setSourceFocus_( "@"..source, line )
 		end
-		
+
 		--print( source )
 		return source
 	end
@@ -264,12 +293,12 @@ function meta.__index:refreshSourceFocus_( callstack, level )
 	if type( callstack ) == "table" and callstack[level] ~= nil then
 		local remoteSource = callstack[level].source
 		local line = callstack[level].line
-		
+
 		local source = self:refreshSourcePageFocus_( remoteSource, line )
-		
+
 		self:setPointers_( level, source, line )
 		self:refreshPointers_()
-		
+
 		self:refreshWatches_( level )
 	end
 end
@@ -333,10 +362,10 @@ function meta.__index:onBreakPointChanged_( source, line )
 	else
 		local clientData = self.clients[clientId]
 		if clientData == nil then return end
-		
+
 		config = clientData.config
 	end
-	
+
 	if config.breakpoints[source] == nil then
 		config.breakpoints[source] = {}
 	end
@@ -345,9 +374,9 @@ function meta.__index:onBreakPointChanged_( source, line )
 	if not newValue then
 		config.breakpoints[source][line] = nil
 	end
-	
+
 	print( "Setting breakpoint at "..source.."("..line..") to "..tostring(newValue) )
-	
+
 	assert( string.sub( source, 1, 1 ) == "@" )
 	source = string.sub( source, 2 )
 	for clientId, clientData in pairs( self.clients ) do
@@ -375,7 +404,7 @@ function meta.__index:onBreakPointChanged_( source, line )
 						assert( remoteSource ~= nil )
 					end
 				end
-				
+
 				if remoteSource ~= nil then
 					client:setbreakpoint( "@"..remoteSource, line, newValue )
 					clientData.config.dirty = true
@@ -396,6 +425,17 @@ function meta.__index:onApplicationExiting_()
 	self.window.threads:setData( nil )
 end
 
+function meta.__index:refreshScrollPosition_()
+	local config = self:getActiveClientConfig_()
+
+	for source, sp in pairs( config.scrollPositions ) do
+		local page = self.window:getSourcePage( source )
+		if page ~= nil then
+			page:SetScrollPos(sp)
+		end
+	end	
+end
+
 function meta.__index:refreshBreakPoints_()
 	local clientId = self.activeClient
 	local config = nil
@@ -406,14 +446,14 @@ function meta.__index:refreshBreakPoints_()
 		config = self.clients[clientId].config
 		client = self.engine.getClient( clientId )
 	end
-	
+
 	local remoteBreakPoints = {}
 	if client ~= nil then
 		remoteBreakPoints = client:breakpoints()
 	end
 	self.window:clearBreakPoints()
 	local goodBreakpoints = {}
-	
+
 	for remoteSource, lines in pairs( remoteBreakPoints ) do
 		if next( lines ) ~= nil then
 			local source = self:getLocalSource_( clientId, string.sub( remoteSource, 2 ) )
@@ -437,7 +477,7 @@ function meta.__index:refreshBreakPoints_()
 			end
 		end
 	end
-	
+
 	for source, lines in pairs( config.breakpoints ) do
 		local page = self.window:findSourcePage( source )
 		if page ~= nil then
@@ -459,12 +499,19 @@ function meta.__index:onFileOpen_( path )
 	self:setSourceFocus_( source, 1 )
 	self:refreshPointers_()
 	self:refreshBreakPoints_()
+	self:refreshScrollPosition_()
 end
 
 function meta.__index:onFileClosed_( source )
 	for id, clientData in pairs( self.clients ) do
 		clientData.config.dirty = true
 	end
+end
+
+function meta.__index:onScrollChanged_( source, position )
+	local clientConfig = self:getActiveClientConfig_()
+	clientConfig.scrollPositions[source] = position
+	clientConfig.dirty = true
 end
 
 function meta.__index:onThreadClicked_( clientId, threadId )
@@ -492,9 +539,9 @@ function meta.__index:onDebugCommand_( command, neededState, targetClientId )
 		return
 	end
 	if neededState ~= nil and client:status() ~= neededState then return end
-	
+
 	self:invalidateState_( false )
-	
+
 	local clientData = assert( self.clients[targetClientId] )
 	local ok, msg = xpcall( function() client[command]( client ) end, debug.traceback )
 	if not ok then
@@ -514,7 +561,7 @@ function meta.__index:invalidateState_( immediate )
 		self.window:clearMarkers()
 		self.window.callstack:setData( nil )
 		self:refreshBreakPoints_()
-		
+
 		local client = self.engine.getClient( self.activeClient )
 		if client == nil then
 			self.window.auto:clear()
@@ -636,7 +683,7 @@ function meta.__index:refreshThreads_()
 			cdata.status = client:status()
 			cdata.active = (clientId == self.activeClient)
 			cdata.breakOnConnection = clientData.config.breakOnConnection
-			
+
 			if cdata.status == "break" then
 				local current = client:getcurrentthread()
 				local active = client:getactivethread()
@@ -644,7 +691,7 @@ function meta.__index:refreshThreads_()
 					active = current
 				end
 				table.insert( cdata.coroutines, { id = "main", current = (current == "main"), active = (active=="main" and cdata.clientId == self.activeClient and client:getactivethread() ~= "current") } )
-				
+
 				local coroutines = client:coroutines()
 				--print( coroutines )
 				for _, data in ipairs( coroutines ) do
@@ -655,7 +702,7 @@ function meta.__index:refreshThreads_()
 					table.insert( cdata.coroutines, codata )
 				end
 			end
-			
+
 			table.insert( data, cdata )
 		end
 	end
@@ -683,15 +730,15 @@ function meta.__index:onNewClient_( clientId )
 	local client = self.engine.getClient( clientId )
 	local name = client:name()
 	if self.configs[name] == nil then
-		self.configs[name] = { name = name, mappings = {}, breakpoints = {} }
+		self.configs[name] = createClientConfig(name)
 		self:loadConfig_( name )
 	end
 	self.clients[clientId] = { dirty = true, activeThread = "current", activeLevel = 1, config = self.configs[name] }
-	
+
 	for source, lines in pairs( self.configs[name].breakpoints ) do
 		assert( string.sub( source, 1, 1 ) == "@" )
 		source = string.sub( source, 2 )
-		local remoteSource, dir = self:getRemoteSource_( clientId, source )	
+		local remoteSource, dir = self:getRemoteSource_( clientId, source )
 		if remoteSource ~= nil then
 			for line, value in pairs( lines ) do
 				if value then
@@ -700,12 +747,12 @@ function meta.__index:onNewClient_( clientId )
 			end
 		end
 	end
-	
+
 	self.threadsDirty = true
 	if self.activeClient == nil then
 		self:setActiveClient_( clientId )
 	end
-	
+
 	if not self.configs[name].breakOnConnection then
 		self.clients[clientId].ignoreNextBreak = true
 	end
@@ -717,7 +764,7 @@ function meta.__index:onClientBreak_( clientId )
 	clientData.dirty = true
 	clientData.activeLevel = 1
 	self.threadsDirty = true
-	
+
 	if clientData.ignoreNextBreak then
 		clientData.ignoreNextBreak = false
 		self:onDebugCommand_( "run", "break", clientId )
@@ -741,12 +788,19 @@ function meta.__index:saveConfig_( name )
 		openFiles[page.pageIdx+1] = source
 	end
 	local breakpoints = clientConfig.breakpoints
-	
+	local scrollPositions = clientConfig.scrollPositions
+
 	local path = "clients/"..name.."/config.lua"
 	lfs.mkdir( "clients" )
 	lfs.mkdir( "clients/"..name )
 	local file = assert( io.open( path, "w" ) )
-	file:write( grldc.net.serialize( { mappings = clientConfig.mappings, openFiles = openFiles, breakpoints = breakpoints, breakOnConnection = clientConfig.breakOnConnection } ) )
+	file:write( grldc.net.serialize( { 
+		mappings = clientConfig.mappings, 
+		openFiles = openFiles, 
+		breakpoints = breakpoints,
+		scrollPositions = scrollPositions,
+		breakOnConnection = clientConfig.breakOnConnection
+	} ) )
 	file:close()
 	print( "Saved config \""..name.."\"" )
 	clientConfig.lastConfigSave = os.time()
@@ -772,6 +826,12 @@ function meta.__index:loadConfig_( name )
 				for line, _ in pairs( bp ) do
 					clientConfig.breakpoints[source][line] = true
 				end
+			end
+		end
+
+		if config.scrollPositions ~= nil then
+			for source, sp in pairs( config.scrollPositions ) do
+				clientConfig.scrollPositions[source] = sp
 			end
 		end
 	end
