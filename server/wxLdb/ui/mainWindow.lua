@@ -266,7 +266,9 @@ end
 
 function meta.__index:getSourcePage( source )
 	local page = self.sourcePages[source]
+	local newlyLoaded = false
 	if page == nil then
+		newlyLoaded = true
 		page = mainthread.execute( function() return ui.sourcePage.new( self.sourceBook, source ) end )
 		self.sourcePages[source] = page
 		local _, _, name = string.find( source, ".*[/\\](.*)" )
@@ -280,7 +282,7 @@ function meta.__index:getSourcePage( source )
 		page:registerEvent( "onBreakPointChanged", function( ... ) self:runEvents_( "onBreakPointChanged", source, ... ) end )
 		page:registerEvent( "onScrollChanged", function( ... ) self:runEvents_( "onScrollChanged", source, ... ) end )
 	end
-	return page
+	return page, newlyLoaded
 end
 
 function meta.__index:findSourcePage( source )

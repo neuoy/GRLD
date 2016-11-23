@@ -823,8 +823,8 @@ function meta.__index:loadConfig_( name )
 		end
 
 		for _, file in ipairs( config.openFiles ) do
-			local page = self.window:getSourcePage( file )
-			if page ~= nil then
+			local page, newlyLoaded = self.window:getSourcePage( file )
+			if page ~= nil and newlyLoaded then
 				local sp = clientConfig.scrollPositions[file]
 				print("scroll to", sp)
 				if sp ~= nil then
