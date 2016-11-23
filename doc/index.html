@@ -83,11 +83,11 @@ If for some reason you don't want to use a prebuilt release, here is the process
 
 <h4>Client build</h4>
 
-The client (the part that must be integrated in the application to debug) requires some C code, and thus must either be built as a separate dynamic link library, or directly integrated in your application source code (which is not descibed here as it would vary depending on your application and the tools you use to build it ; but since you already know how to build your own application, integration should be easy).
+<p>The client (the part that must be integrated in the application to debug) requires some C code, and thus must either be built as a separate dynamic link library, or directly integrated in your application source code (which is not descibed here as it would vary depending on your application and the tools you use to build it ; but since you already know how to build your own application, integration should be easy).</p>
 
-To build the dynamic link library (DLL) on Windows, you can use visual studio. Once visual studio is installed, open client/visual/grldc.sln and build the solution. This should result in a grldc.dll file in the Debug or Release folder.
+<p>To build the dynamic link library (DLL) on Windows, you can use visual studio. Once visual studio is installed, open client/visual/grldc.sln and build the solution. The default distribution is configured for lua5.2 on x86 architecture (it has also been tested with lua5.1 and luajit, but you'll need to download and configure the corresponding lua library). This should result in a grldc.dll file in the Debug or Release folder.</p>
 
-One thing to note is that the dll embeds lua files for convenience (so that you don't have to copy them with your application data and load them with lua). This is done by client/build/embed.lua.bat which will generate some .lua.c files that are then built into the DLL. This is done automatically if you use the provided visual studio solution file.
+<p>One thing to note is that the dll embeds lua files for convenience (so that you don't have to copy them with your application data and load them with lua). This is done by client/build/embed.lua.bat which will generate some .lua.c files that are then built into the DLL. This is done automatically if you use the provided visual studio solution file.</p>
 
 <h4>Server build</h4>
 

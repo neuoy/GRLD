@@ -5,3 +5,7 @@
 /client/visual/*.user
 /client/visual/x64/Debug
 /server/clients
+/client/visual/Release
+/client/visual/*.opendb
+/client/visual/*.db
+/client/visual/x64/Release
