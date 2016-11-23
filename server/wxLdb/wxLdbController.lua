@@ -427,7 +427,7 @@ end
 
 function meta.__index:refreshScrollPosition_()
 	local config = self:getActiveClientConfig_()
-
+	
 	for source, sp in pairs( config.scrollPositions ) do
 		local page = self.window:getSourcePage( source )
 		if page ~= nil then
@@ -815,23 +815,32 @@ function meta.__index:loadConfig_( name )
 		file:close()
 		clientConfig.mappings = config.mappings
 		clientConfig.breakOnConnection = config.breakOnConnection
-		for _, file in ipairs( config.openFiles ) do
-			self.window:getSourcePage( file )
+
+		if config.scrollPositions ~= nil then
+			for source, sp in pairs( config.scrollPositions ) do
+				clientConfig.scrollPositions[source] = sp
+			end
 		end
-		if config.breakpoints ~= nil then
-			for source, bp in pairs( config.breakpoints ) do
+
+		for _, file in ipairs( config.openFiles ) do
+			local page = self.window:getSourcePage( file )
+			if page ~= nil then
+				local sp = clientConfig.scrollPositions[file]
+				print("scroll to", sp)
+				if sp ~= nil then
+					page:SetScrollPos(sp)
+				end
+			end
+		end
+
+		if clientConfig.breakpoints ~= nil then
+			for source, bp in pairs( clientConfig.breakpoints ) do
 				if clientConfig.breakpoints[source] == nil then
 					clientConfig.breakpoints[source] = {}
 				end
 				for line, _ in pairs( bp ) do
 					clientConfig.breakpoints[source][line] = true
 				end
-			end
-		end
-
-		if config.scrollPositions ~= nil then
-			for source, sp in pairs( config.scrollPositions ) do
-				clientConfig.scrollPositions[source] = sp
 			end
 		end
 	end
